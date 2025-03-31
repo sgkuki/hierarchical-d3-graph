@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>嵌套可拖拽折叠节点（Tree/Orthogonal布局）</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      .node {
+        cursor: move;
+      }
+      .node rect {
+        fill: steelblue;
+        stroke: white;
+        rx: 5;
+        transition: all 0.3s;
+      }
+      .node text {
+        fill: white;
+        font-family: Arial;
+        font-size: 12px;
+        text-anchor: middle;
+      }
+      .link {
+        fill: none;
+        stroke: #999;
+        stroke-width: 1.5px;
+      }
+      button {
+        margin: 5px;
+        padding: 5px 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <button onclick="toggleLayout()">切换布局（Tree/Orthogonal）</button>
+    <svg width="1200" height="800"></svg>
+    <script>
+      const svg = d3.select("svg");
+      let layoutType = "tree"; // 布局类型：tree / orthogonal
+      const rootNode = {
+        id: "root",
+        name: "CEO",
+        x: 600,
+        y: 100,
+        isOpen: true,
+        children: [
+          {
+            id: "tech",
+            name: "技术部",
+            isOpen: true,
+            children: [
+              { id: "frontend", name: "前端组" },
+              { id: "backend", name: "后端组" },
+            ],
+          },
+          {
+            id: "sales",
+            name: "销售部",
+            isOpen: true,
+            children: [
+              { id: "north", name: "北方区" },
+              { id: "south", name: "南方区" },
+            ],
+          },
+        ],
+      };
+
+      // 初始化
+      let nodes = flattenHierarchy(rootNode);
+      let links = generateLinks(nodes);
+      render();
+      applyLayout();
+
+      // -------------------- 核心函数 --------------------
+      function flattenHierarchy(node, parent = null, depth = 0) {
+        const flatNodes = [
+          {
+            id: node.id,
+            name: node.name,
+            parent: parent?.id || null,
+            depth: depth,
+            isOpen: node.isOpen,
+            _children: node.children,
+            width: 120,
+            height: 60,
+          },
+        ];
+
+        if (node.isOpen && node.children) {
+          node.children.forEach((child) => {
+            flatNodes.push(...flattenHierarchy(child, node, depth + 1));
+          });
+        }
+
+        return flatNodes;
+      }
+
+      function generateLinks(nodes) {
+        const validNodeIds = new Set(nodes.map((d) => d.id));
+        return nodes
+          .filter((d) => d.parent && validNodeIds.has(d.parent))
+          .map((d) => ({ source: d.parent, target: d.id }));
+      }
+
+      function drawLink(d) {
+        const source = nodes.find((n) => n.id === d.source);
+        const target = nodes.find((n) => n.id === d.target);
+
+        if (!source || !target) return "M 0 0";
+
+        if (layoutType === "orthogonal") {
+          const midX = source.x + (target.x - source.x) / 2;
+          return `M ${source.x + source.width / 2} ${source.y + source.height}
+              V ${source.y + source.height + 50}
+              H ${midX}
+              V ${target.y - 20}
+              H ${target.x + target.width / 2}`;
+        } else {
+          return d3
+            .linkHorizontal()()
+            .x((d) => d.x + d.width / 2)
+            .y((d) => d.y + d.height / 2);
+        }
+      }
+
+      function toggleNode(event, d) {
+        event.stopPropagation();
+        d.isOpen = !d.isOpen;
+        nodes = flattenHierarchy(rootNode);
+        links = generateLinks(nodes); // 同步更新 links
+        applyLayout();
+        render();
+      }
+
+      function render() {
+        svg.selectAll("*").remove();
+
+        // 绘制连线
+        svg
+          .selectAll(".link")
+          .data(links)
+          .enter()
+          .append("path")
+          .attr("class", "link")
+          .attr("d", (d) => drawLink(d));
+
+        // 绘制节点
+        const nodeGroups = svg
+          .selectAll(".node")
+          .data(nodes, (d) => d.id)
+          .enter()
+          .append("g")
+          .attr("class", "node")
+          .attr("transform", (d) => `translate(${d.x},${d.y})`)
+          .call(
+            d3
+              .drag()
+              .on("start", dragStart)
+              .on("drag", dragging)
+              .on("end", dragEnd)
+          );
+
+        nodeGroups
+          .append("rect")
+          .attr("width", (d) => d.width)
+          .attr("height", (d) => d.height)
+          .attr("rx", 5)
+          .on("click", toggleNode);
+
+        nodeGroups
+          .append("text")
+          .attr("x", (d) => d.width / 2)
+          .attr("y", (d) => d.height / 2)
+          .text((d) => d.name);
+      }
+
+      function applyLayout() {
+        if (layoutType === "tree") {
+          applyTreeLayout();
+        } else {
+          applyOrthogonalLayout();
+        }
+        updatePositions();
+      }
+
+      function applyTreeLayout() {
+        const tree = d3.tree().size([800, 1000]).nodeSize([100, 200]);
+
+        const root = d3.hierarchy(rootNode, (d) => d.children);
+        tree(root);
+
+        root.each((node) => {
+          const dataNode = nodes.find((n) => n.id === node.data.id);
+          if (dataNode) {
+            dataNode.x = node.y;
+            dataNode.y = node.x;
+          }
+        });
+      }
+
+      function applyOrthogonalLayout() {
+        const root = d3.hierarchy(rootNode, (d) => d.children);
+        let x = 600,
+          y = 100; // 根节点起始位置
+
+        root.eachBefore((node) => {
+          const dataNode = nodes.find((n) => n.id === node.data.id);
+          if (dataNode) {
+            if (node.depth === 0) {
+              dataNode.x = x;
+              dataNode.y = y;
+            } else {
+              dataNode.x = node.parent.data.x + 200;
+              dataNode.y =
+                node.parent.data.y +
+                node.parent.children.indexOf(node.data) * 100;
+            }
+          }
+        });
+      }
+
+      function toggleLayout() {
+        layoutType = layoutType === "tree" ? "orthogonal" : "tree";
+        applyLayout();
+        render();
+      }
+
+      function dragStart(event, d) {
+        d3.select(this).raise();
+        d.fx = d.x;
+        d.fy = d.y;
+      }
+
+      function dragging(event, d) {
+        const dx = event.x - d.x;
+        const dy = event.y - d.y;
+        moveSubtree(d, dx, dy);
+        d.fx = event.x;
+        d.fy = event.y;
+        updatePositions();
+      }
+
+      function dragEnd(event, d) {
+        d.fx = null;
+        d.fy = null;
+      }
+
+      function moveSubtree(node, dx, dy) {
+        node.x += dx;
+        node.y += dy;
+        if (node._children) {
+          node._children.forEach((child) => {
+            const childNode = nodes.find((n) => n.id === child.id);
+            if (childNode) moveSubtree(childNode, dx, dy);
+          });
+        }
+      }
+
+      function updatePositions() {
+        svg
+          .selectAll(".node")
+          .transition()
+          .duration(500)
+          .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+        svg
+          .selectAll(".link")
+          .transition()
+          .duration(500)
+          .attr("d", (d) => drawLink(d));
+      }
+    </script>
+  </body>
+</html>
