@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>方形包裹节点</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <svg width="800" height="600"></svg>
+
+    <script>
+        // 示例数据结构
+        const data = {
+            name: "根节点",
+            children: [
+                {
+                    name: "部门A",
+                    children: [
+                        { name: "组A1" },
+                        { name: "组A2" },
+                        { name: "组A3" }
+                    ]
+                },
+                {
+                    name: "部门B",
+                    children: [
+                        { name: "组B1" },
+                        { 
+                            name: "组B2",
+                            children: [
+                                { name: "成员1" },
+                                { name: "成员2" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // 设置布局参数
+        const svg = d3.select("svg");
+        const margin = { top: 50, right: 20, bottom: 20, left: 20 };
+        const width = +svg.attr("width") - margin.left - margin.right;
+        const height = +svg.attr("height") - margin.top - margin.bottom;
+
+        // 创建集群布局
+        const cluster = d3.cluster()
+            .size([height, width - 200]);
+
+        // 转换数据
+        const root = d3.hierarchy(data);
+        cluster(root);
+
+        // 计算节点包围盒
+        root.eachAfter(node => {
+            if (node.children) {
+                const childrenX = node.children.map(d => d.x);
+                const childrenY = node.children.map(d => d.y);
+                
+                node.x = d3.mean(childrenX);
+                node.y = d3.min(childrenY) - 50;
+                
+                // 计算包围盒尺寸
+                node.box = {
+                    width: d3.max(childrenX) - d3.min(childrenX) + 100,
+                    height: d3.max(childrenY) - node.y + 50
+                };
+            } else {
+                node.box = { width: 100, height: 40 };
+            }
+        });
+
+        // 创建连线生成器
+        const link = d3.linkVertical()
+            .x(d => d.x)
+            .y(d => d.y);
+
+        // 绘制连线
+        svg.selectAll("path")
+            .data(root.links())
+            .enter()
+            .append("path")
+            .attr("d", link)
+            .attr("fill", "none")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1);
+
+        // 绘制父节点容器
+        const nodes = svg.selectAll("g.node")
+            .data(root.descendants())
+            .enter()
+            .append("g")
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+
+        // 添加父节点矩形（自动包裹子节点）
+        nodes.filter(d => d.children)
+            .append("rect")
+            .attr("x", d => -d.box.width/2)
+            .attr("y", -25)
+            .attr("width", d => d.box.width)
+            .attr("height", d => d.box.height)
+            .attr("rx", 5)
+            .attr("fill", "#e0f0ff")
+            .attr("stroke", "#66a3ff")
+            .attr("stroke-width", 2);
+
+        // 添加所有节点方框
+        nodes.append("rect")
+            .attr("x", -50)
+            .attr("y", -20)
+            .attr("width", 100)
+            .attr("height", 40)
+            .attr("rx", 5)
+            .attr("fill", d => d.children ? "#66a3ff" : "#ffd966")
+            .attr("stroke", "#333")
+            .attr("stroke-width", 1);
+
+        // 添加节点文字
+        nodes.append("text")
+            .text(d => d.data.name)
+            .attr("text-anchor", "middle")
+            .attr("dy", 5)
+            .style("font-family", "Arial")
+            .style("font-size", d => d.children ? "14px" : "12px")
+            .style("fill", "#333");
+
+        // nodes.filter(d => d.children)
+        //         .style("cursor", "pointer")
+        //         .on("click", function (event, d) {
+        //             d._children = d.children;
+        //         });
+        // nodes.filter(d => d.children)
+        //     .style("cursor", "pointer")
+        //     .on("click", function (event, d) {
+        //         d.expanded = !d.expanded;
+        //         d._children = d.children;
+        //         d.children = d.expanded ? d._children : null;
+        //         update();
+        //     });
+    </script>
+</body>
+</html>

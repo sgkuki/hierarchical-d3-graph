@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>自动包裹组织架构图</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .container {
+            fill: rgba(102, 163, 255, 0.1);
+            stroke: #66a3ff;
+            stroke-width: 2;
+            rx: 5;
+        }
+        .node-box {
+            fill: #ffd966;
+            stroke: #333;
+            rx: 3;
+            cursor: move;
+        }
+        .link {
+            fill: none;
+            stroke: #999;
+            stroke-width: 1.5;
+        }
+        .active .node-box {
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body>
+    <svg width="800" height="600"></svg>
+
+    <script>
+        // 示例数据
+        const data = {
+            name: "根节点",
+            children: [
+                {
+                    name: "部门A",
+                    children: [
+                        { name: "组A1" },
+                        { name: "组A2" },
+                        { name: "组A3" }
+                    ]
+                },
+                {
+                    name: "部门B",
+                    children: [
+                        { name: "组B1" },
+                        { 
+                            name: "组B2",
+                            children: [
+                                { name: "成员1" },
+                                { name: "成员2" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // 初始化布局
+        const svg = d3.select("svg");
+        const padding = 20;
+        const root = d3.hierarchy(data);
+        
+        // 初始化树布局
+        const treeLayout = d3.tree()
+            .size([600, 800])
+            .separation(() => 1);
+
+        // 初始化拖拽功能
+        let draggedNode = null;
+
+        // 包围盒计算函数
+        function updateContainers(node) {
+            if (!node) return;
+            
+            if (node.children) {
+                const children = node.leaves();
+                const xCoords = children.map(d => d.x);
+                const yCoords = children.map(d => d.y);
+                
+                node.container = {
+                    x: d3.min(xCoords) - padding,
+                    y: d3.min(yCoords) - padding,
+                    width: d3.max(xCoords) - d3.min(xCoords) + padding*2,
+                    height: d3.max(yCoords) - d3.min(yCoords) + padding*2
+                };
+            }
+            
+            if (node.parent) updateContainers(node.parent);
+        }
+
+        // 递归更新位置
+        function updatePositions(node, dx, dy) {
+            node.x += dx;
+            node.y += dy;
+            if (node.children) {
+                node.children.forEach(child => 
+                    updatePositions(child, dx, dy));
+            }
+        }
+
+        // 拖拽处理函数
+        function dragHandler() {
+            let dx = 0, dy = 0;
+
+            function dragStarted(event, d) {
+                draggedNode = d;
+                d3.select(this).classed("active", true);
+            }
+
+            function dragged(event, d) {
+                dx = event.x - d.x;
+                dy = event.y - d.y;
+                
+                updatePositions(d, dx, dy);
+                updateContainers(d.parent);
+                
+                // 实时更新视图
+                svg.selectAll(".node")
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+                    
+                svg.selectAll(".container")
+                    .filter(d => d.container)
+                    .attr("x", d => d.container.x)
+                    .attr("y", d => d.container.y)
+                    .attr("width", d => d.container.width)
+                    .attr("height", d => d.container.height);
+            }
+
+            function dragEnded() {
+                d3.select(this).classed("active", false);
+                // 最终布局调整
+                treeLayout(root);
+                updateContainers(root);
+                redraw();
+            }
+
+            return d3.drag()
+                .on("start", dragStarted)
+                .on("drag", dragged)
+                .on("end", dragEnded);
+        }
+
+        // 完整重绘函数
+        function redraw() {
+            // 更新连线
+            const links = svg.selectAll(".link")
+                .data(root.links());
+            
+            links.enter()
+                .append("path")
+                .attr("class", "link")
+                .merge(links)
+                .attr("d", d3.linkVertical()
+                    .x(d => d.x)
+                    .y(d => d.y));
+            
+            links.exit().remove();
+
+            // 更新容器
+            const containers = svg.selectAll(".container")
+                .data(root.descendants().filter(d => d.children));
+            
+            containers.enter()
+                .append("rect")
+                .attr("class", "container")
+                .merge(containers)
+                .attr("x", d => d.container.x)
+                .attr("y", d => d.container.y)
+                .attr("width", d => d.container.width)
+                .attr("height", d => d.container.height);
+            
+            containers.exit().remove();
+
+            // 更新节点
+            const nodes = svg.selectAll(".node")
+                .data(root.descendants());
+            
+            const nodeEnter = nodes.enter()
+                .append("g")
+                .attr("class", "node")
+                .call(dragHandler());
+            
+            nodeEnter.append("rect")
+                .attr("class", "node-box")
+                .attr("x", -50)
+                .attr("y", -20)
+                .attr("width", 100)
+                .attr("height", 40);
+            
+            nodeEnter.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", 5);
+            
+            nodes.merge(nodeEnter)
+                .attr("transform", d => `translate(${d.x},${d.y})`)
+                .select("text")
+                .text(d => d.data.name);
+            
+            nodes.exit().remove();
+        }
+
+        // 初始布局计算
+        treeLayout(root);
+        root.descendants().forEach(d => {
+            d.x0 = d.x;
+            d.y0 = d.y;
+            updateContainers(d);
+        });
+        
+        redraw();
+    </script>
+</body>
+</html>
