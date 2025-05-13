@@ -1,0 +1,341 @@
+import * as d3 from 'd3'; // 需要构建工具支持
+
+export function drawChart() {
+  // 初始化数据
+  let data = {
+    name: "总公司",
+    children: [
+      {
+        name: "技术中心",
+        children: [
+          {
+            name: "前端开发部",
+            children: [
+              {
+                name: "Web组",
+                children: [
+                  { name: "UI团队" },
+                  { name: "交互团队" },
+                  {
+                    name: "开发团队",
+                    children: [
+                      { name: "张三" },
+                      { name: "李四" },
+                      { name: "王五" },
+                    ],
+                  },
+                ],
+              },
+              {
+                name: "移动端组",
+                children: [{ name: "iOS团队" }, { name: "Android团队" }],
+              },
+            ],
+          },
+          {
+            name: "后端开发部",
+            children: [
+              {
+                name: "微服务组",
+                children: [{ name: "网关团队" }, { name: "业务中台" }],
+              },
+              {
+                name: "架构组",
+                children: [{ name: "架构设计" }, { name: "技术预研" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "运营中心",
+        children: [
+          {
+            name: "市场部",
+            children: [{ name: "数字营销" }, { name: "品牌推广" }],
+          },
+          {
+            name: "客户成功部",
+            children: [
+              { name: "实施团队" },
+              { name: "支持团队" },
+              { name: "培训团队" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  let maxDepth = 0;
+  // 计算最大深度
+
+  prepare([data]);
+
+  function prepare(nodes, depth = 0) {
+    if (depth > maxDepth) {
+      maxDepth = depth;
+    }
+    nodes.forEach((node) => {
+      node.depth = depth;
+      if (node.children) {
+        node.children.forEach((child) => prepare(node.children, depth + 1));
+      }
+    });
+  }
+
+  /*
+         drag start
+        */
+  // 添加拖拽功能的核心逻辑
+  function enableDrag(simulation) {
+    function dragStarted(event, d) {
+      d3.select(this).raise().classed("active", true);
+      d._startX = d.x;
+      d._startY = d.y;
+    }
+
+    function dragged(event, d) {
+      // 计算偏移量
+      const dx = event.x - d._startX;
+      const dy = event.y - d._startY;
+
+      // 递归更新整个子树的位置
+      function updatePosition(node, dx, dy) {
+        node.x += dx;
+        node.y += dy;
+        if (node.children) {
+          node.children.forEach((child) => updatePosition(child, dx, dy));
+        }
+      }
+      updatePosition(d, dx, dy);
+
+      // 更新当前节点起始位置
+      d._startX = event.x;
+      d._startY = event.y;
+
+      // 重新计算布局
+      updateVisualization();
+    }
+
+    function dragEnded(event, d) {
+      d3.select(this).classed("active", false);
+    }
+
+    return d3
+      .drag()
+      .on("start", dragStarted)
+      .on("drag", dragged)
+      .on("end", dragEnded);
+  }
+
+  // 通用更新函数
+  function updateVisualization() {
+    // 更新连线
+    // svg.selectAll("path").data(root.links()).join("path").attr("d", link);
+
+    svg
+      .selectAll("path.leaf-link")
+      .data(extraLinks)
+      .join("path")
+      .attr("d", link);
+
+    // 更新节点位置
+    svg
+      .selectAll("g.node")
+      .sort((a, b) => a.depth - b.depth)
+      .attr("transform", (d) => `translate(${d.x},${d.y})`);
+
+    // 更新父容器尺寸
+    updateParentContainers();
+  }
+
+  function calculateNodeBox() {
+    // 计算节点包围盒
+    root.eachAfter((node) => {
+      if (node.children) {
+        calculateParentNode(node);
+      } else {
+        node.box = { width: 100, height: 40 };
+      }
+    });
+  }
+
+  // 更新父节点容器尺寸
+  function updateParentContainers() {
+    root.eachAfter((node) => {
+      if (node.children) {
+        calculateParentNode(node);
+      }
+    });
+    svg
+      .selectAll("rect.parent-bg")
+      .attr("x", (d) => -d.box.width / 2)
+      .attr("y", (d) => -25)
+      .attr("width", (d) => d.box.width)
+      .attr("height", (d) => d.box.height);
+  }
+  function calculateParentNode(node) {
+    const childrenLX = node.children.map((d) => d.x - d.box.width / 2);
+    const childrenRX = node.children.map((d) => d.x + d.box.width / 2);
+    const childrenTY = node.children.map((d) => d.y);
+    const childrenBY = node.children.map((d) => d.y + d.box.height);
+
+    node.x = (d3.max(childrenRX) + d3.min(childrenLX)) / 2;
+    node.y = d3.min(childrenTY) - 50;
+    node.box = {
+      width:
+        d3.max(childrenRX) - d3.min(childrenLX) + getParentWidthPadding(node),
+      height: d3.max(childrenBY) - node.y + getParentHeightPadding(node),
+    };
+  }
+  function getParentWidthPadding(node) {
+    return 30;
+  }
+  function getParentHeightPadding(node) {
+    return 20;
+  }
+  /*
+         drag end
+        */
+
+  // 初始化视图
+  const svg = d3.select("svg");
+  const margin = { top: 50, right: 20, bottom: 20, left: 20 };
+  const width = +svg.attr("width") - margin.left - margin.right;
+  const height = +svg.attr("height") - margin.top - margin.bottom;
+
+  // 创建集群布局
+  const cluster = d3
+    .cluster()
+    .nodeSize([120, 200]) // [垂直间距, 水平间距]
+    .separation(() => 1.2);
+
+  // 转换数据
+  const root = d3.hierarchy(data);
+  cluster(root);
+
+  // 计算节点包围盒
+  calculateNodeBox();
+
+  // 调整根节点位置到画布中心
+  function adjustRootPosition() {
+    // 计算当前布局的偏移量
+    const rootX = root.x;
+    const rootY = root.y;
+
+    // 计算需要移动的差值
+    let centerX = 750; // 画布中心X坐标
+    let centerY = 500; // 画布中心Y坐标
+    const dx = centerX - rootX;
+    const dy = centerY - 100 - rootY; // 100为顶部留空
+
+    // 递归移动所有节点
+    root.each((node) => {
+      node.x += dx;
+      node.y += dy;
+    });
+  }
+  adjustRootPosition();
+
+  // 创建连线生成器
+  const link = d3
+    .linkVertical()
+    .x((d) => d.x)
+    .y((d) => d.y);
+
+  // 绘制连线
+//   svg
+//     .selectAll("path")
+//     .data(root.links())
+//     .enter()
+//     .append("path")
+//     .attr("d", link)
+//     .attr("fill", "none")
+//     .attr("stroke", "#999")
+//     .attr("stroke-width", 1);
+
+  // 修改节点创建部分，添加拖拽
+  const nodes = svg
+    .selectAll("g.node")
+    .data(root.descendants())
+    .join("g")
+    .attr("class", "node")
+    .sort((a, b) => a.depth - b.depth)
+    .attr("transform", (d) => `translate(${d.x},${d.y})`)
+    .call(enableDrag()); // 应用拖拽行为
+
+  // 添加父节点矩形（自动包裹子节点）
+  // 修改节点绘制顺序（分两次绘制）
+  // 1. 先绘制父节点背景
+  nodes
+    .filter((d) => d.children)
+    .append("rect")
+    .attr("class", "parent-bg")
+    .attr("x", (d) => -d.box.width / 2)
+    .attr("y", -25)
+    .attr("width", (d) => d.box.width)
+    .attr("height", (d) => d.box.height)
+    .attr("rx", 5)
+    .attr("fill", "#e0f0ff")
+    .attr("stroke", "#66a3ff")
+    .attr("stroke-width", 2);
+
+  // 2. 绘制所有节点主体（后绘制的在上层）
+  const nodeBodies = nodes.append("g").attr("class", "node-body").raise(); // 提升到上层
+
+  // 添加所有节点方框
+  nodes
+    .append("rect")
+    .attr("x", -50)
+    .attr("y", -20)
+    .attr("width", 100)
+    .attr("height", 40)
+    .attr("rx", 5)
+    .attr("fill", (d) => (d.children ? "#e0f0ff" : "#ffd966"))
+    .attr("stroke", "#333")
+    .attr("stroke-width", (d) => (d.children ? 0 : 1));
+
+  // 添加节点文字
+  nodes
+    .append("text")
+    .text((d) => d.data.name)
+    .attr("text-anchor", "middle")
+    .attr("dy", 5)
+    .style("font-family", "Arial")
+    .style("font-size", (d) => (d.children ? "14px" : "12px"))
+    .style("fill", "#333");
+
+  // 新增：生成叶子节点间连接线
+  function generateLeafLinks(root) {
+    const links = [];
+    root.each((node) => {
+      if (node.children && node.children.length > 1) {
+        // 仅处理所有子节点都是叶子的情况
+        if (node.children.every((d) => !d.children)) {
+          links.push({
+            source: node.children[0],
+            target: node.children[node.children.length - 1],
+          });
+        }
+      }
+    });
+    return links;
+  }
+
+  // 在初始化后生成额外连接线数据
+  let extraLinks = generateLeafLinks(root);
+
+  // 绘制叶子节点间额外连线
+  svg
+    .selectAll("path.leaf-link")
+    .data(extraLinks)
+    .enter()
+    .append("path")
+    .attr("class", "leaf-link")
+    .attr("d", link)
+    .attr("fill", "none")
+    .attr("stroke", "#ff3300")
+    .attr("stroke-width", 2)
+    .attr("marker-end", "url(#arrow)");
+}

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>D3 简单项目</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <button onclick="drawChart()">绘制图表</button>
+    <svg width="1500" height="1000"></svg>
+    
+    <!-- 使用模块化加载 -->
+    <script type="module" src="./main.js"></script>
+    <style>
+        /* 添加层级控制 */
+        .parent-bg {
+            pointer-events: none;
+            /* 允许穿透点击到子节点 */
+        }
+
+        .node-body {
+            pointer-events: all;
+        }
+    </style>
+</body>
+</html>
