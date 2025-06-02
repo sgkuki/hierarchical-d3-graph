@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js 动态可展开节点图</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 2.8rem;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.3rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            color: #ffdd99;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            max-width: 1400px;
+            width: 100%;
+        }
+        
+        .graph-section {
+            flex: 1;
+            min-width: 650px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+        }
+        
+        #graph {
+            width: 100%;
+            height: 600px;
+            background: rgba(0, 0, 30, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .info-panel {
+            flex-basis: 400px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        .panel-title {
+            color: #ffcc00;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .features {
+            list-style-type: none;
+        }
+        
+        .features li {
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .features li:hover {
+            transform: translateX(10px);
+            background: rgba(255, 200, 0, 0.2);
+        }
+        
+        .features li::before {
+            content: '✓';
+            color: #4cff00;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 1.3rem;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .legend-color {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button {
+            background: linear-gradient(to right, #ff8c00, #ffcc00);
+            border: none;
+            color: #1a2a6c;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        button:active {
+            transform: translateY(-2px);
+        }
+        
+        .instructions {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+            max-width: 800px;
+            font-size: 1.1rem;
+        }
+        
+        .instructions p {
+            margin: 15px 0;
+            line-height: 1.7;
+        }
+        
+        .highlight {
+            color: #ffcc00;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px 8px;
+            border-radius: 5px;
+        }
+        
+        footer {
+            margin-top: 30px;
+            padding: 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+        }
+        
+        .node {
+            cursor: pointer;
+            transition: all 0.5s ease;
+        }
+        
+        .node-label {
+            font-size: 13px;
+            text-anchor: middle;
+            fill: white;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+        }
+        
+        .link {
+            stroke: rgba(255, 255, 255, 0.4);
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>D3.js 动态可展开节点图</h1>
+        <p class="subtitle">节点展开时体积增大，周围节点自动向外移动以适应变化</p>
+    </div>
+    
+    <div class="container">
+        <div class="graph-section">
+            <div class="status-bar">
+                <div>节点数: <span id="node-count">0</span></div>
+                <div>连线数: <span id="link-count">0</span></div>
+                <div>已展开节点: <span id="expanded-count">0</span></div>
+            </div>
+            <div id="graph"></div>
+            <div class="controls">
+                <button id="reset">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                    重置图表
+                </button>
+                <button id="expand-all">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    展开所有节点
+                </button>
+                <button id="collapse-all">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
+                    </svg>
+                    折叠所有节点
+                </button>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h2 class="panel-title">实现原理</h2>
+            <ul class="features">
+                <li><strong>动态力导向布局</strong> - 使用D3力模拟实现节点间的自然排斥</li>
+                <li><strong>智能碰撞检测</strong> - 根据节点大小设置碰撞半径防止重叠</li>
+                <li><strong>体积感知布局</strong> - 节点展开时增大碰撞半径，周围节点自动外移</li>
+                <li><strong>平滑动画过渡</strong> - 所有变化都有流畅的动画效果</li>
+                <li><strong>层次结构管理</strong> - 支持多级展开/折叠操作</li>
+                <li><strong>实时布局更新</strong> - 每次操作后重新加热模拟，实现动态调整</li>
+                <li><strong>交互式控制</strong> - 支持节点拖拽和按钮控制</li>
+            </ul>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #4e79a7;"></div>
+                    <span>可展开节点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f28e2c;"></div>
+                    <span>已展开节点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e15759;"></div>
+                    <span>叶子节点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #59a14f;"></div>
+                    <span>新添加节点</span>
+                </div>
+            </div>
+            
+            <div class="instructions" style="margin-top: 20px;">
+                <p><span class="highlight">点击节点</span>：展开/折叠子节点</p>
+                <p><span class="highlight">拖动节点</span>：手动调整位置</p>
+                <p><span class="highlight">展开节点</span>：节点体积增大，周围节点自动向外移动</p>
+                <p><span class="highlight">折叠节点</span>：节点体积恢复，周围节点向内移动</p>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        D3.js 动态可展开节点图实现 | 智能布局调整技术演示
+    </footer>
+
+    <script>
+        // 图表配置
+        const width = 650;
+        const height = 600;
+        const baseRadius = 22;
+        const expandedRadius = 45;
+        const leafRadius = 18;
+        const padding = 15;
+        
+        // 创建SVG容器
+        const svg = d3.select('#graph')
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height)
+            .attr('viewBox', [0, 0, width, height]);
+        
+        // 创建节点数据结构
+        const createNode = (id, name, children = [], level = 0) => {
+            return {
+                id,
+                name,
+                children,
+                level,
+                expanded: false,
+                radius: children.length ? baseRadius : leafRadius,
+                x: width / 2 + (Math.random() - 0.5) * 200,
+                y: height / 2 + (Math.random() - 0.5) * 200,
+                color: children.length ? '#4e79a7' : '#e15759'
+            };
+        };
+        
+        // 创建示例数据
+        let nodes = [
+            createNode('1', '核心节点', [
+                createNode('1-1', '技术研发', [
+                    createNode('1-1-1', '前端开发'),
+                    createNode('1-1-2', '后端架构'),
+                    createNode('1-1-3', '数据库'),
+                    createNode('1-1-4', 'DevOps')
+                ], 1),
+                createNode('1-2', '产品设计', [
+                    createNode('1-2-1', 'UI/UX设计'),
+                    createNode('1-2-2', '交互设计'),
+                    createNode('1-2-3', '原型设计')
+                ], 1),
+                createNode('1-3', '项目管理', [
+                    createNode('1-3-1', '需求分析'),
+                    createNode('1-3-2', '进度跟踪'),
+                    createNode('1-3-3', '风险管理')
+                ], 1)
+            ]),
+            createNode('2', '市场运营', [
+                createNode('2-1', '数字营销'),
+                createNode('2-2', '社交媒体'),
+                createNode('2-3', '内容创作', [
+                    createNode('2-3-1', '博客文章'),
+                    createNode('2-3-2', '视频制作'),
+                    createNode('2-3-3', '图形设计')
+                ], 1)
+            ]),
+            createNode('3', '客户服务', [
+                createNode('3-1', '技术支持'),
+                createNode('3-2', '客户成功'),
+                createNode('3-3', '反馈收集')
+            ]),
+            createNode('4', '人力资源', [
+                createNode('4-1', '招聘'),
+                createNode('4-2', '培训'),
+                createNode('4-3', '绩效评估')
+            ])
+        ];
+        
+        // 扁平化节点数组
+        let allNodes = [];
+        const flattenNodes = (nodeList) => {
+            nodeList.forEach(node => {
+                allNodes.push(node);
+                if (node.children && node.children.length) {
+                    flattenNodes(node.children);
+                }
+            });
+        };
+        flattenNodes(nodes);
+        
+        // 创建连线数据
+        let links = [];
+        const createLinks = (nodeList) => {
+            nodeList.forEach(node => {
+                if (node.children && node.children.length) {
+                    node.children.forEach(child => {
+                        links.push({
+                            source: node.id,
+                            target: child.id
+                        });
+                    });
+                    createLinks(node.children);
+                }
+            });
+        };
+        createLinks(nodes);
+        
+        // 更新状态显示
+        const updateStatus = () => {
+            d3.select('#node-count').text(allNodes.length);
+            d3.select('#link-count').text(links.length);
+            d3.select('#expanded-count').text(allNodes.filter(d => d.expanded).length);
+        };
+        
+        // 创建力导向模拟
+        const simulation = d3.forceSimulation(allNodes)
+            .force('charge', d3.forceManyBody().strength(-400))
+            .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('collision', d3.forceCollide().radius(d => d.radius + padding))
+            .force('x', d3.forceX(width / 2).strength(0.05))
+            .force('y', d3.forceY(height / 2).strength(0.05));
+        
+        // 创建连线
+        const link = svg.append('g')
+            .attr('class', 'links')
+            .selectAll('line')
+            .data(links)
+            .join('line')
+            .attr('class', 'link')
+            .attr('stroke-opacity', 0.6);
+        
+        // 创建节点组
+        const node = svg.append('g')
+            .attr('class', 'nodes')
+            .selectAll('g')
+            .data(allNodes)
+            .join('g')
+            .attr('class', 'node')
+            .attr('transform', d => `translate(${d.x}, ${d.y})`)
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended));
+        
+        // 创建节点圆形
+        node.append('circle')
+            .attr('r', d => d.radius)
+            .attr('fill', d => {
+                if (d.children && d.children.length) {
+                    return d.expanded ? '#f28e2c' : '#4e79a7';
+                }
+                return '#e15759';
+            })
+            .attr('stroke', 'white')
+            .attr('stroke-width', 2)
+            .attr('stroke-opacity', 0.8);
+        
+        // 创建节点标签
+        node.append('text')
+            .attr('class', 'node-label')
+            .attr('dy', 4)
+            .text(d => d.name);
+        
+        // 节点点击事件 - 展开/折叠
+        node.on('click', (event, d) => {
+            if (!d.children || !d.children.length) return;
+            
+            d.expanded = !d.expanded;
+            d.radius = d.expanded ? expandedRadius : baseRadius;
+            
+            // 更新节点半径
+            node.select('circle')
+                .transition()
+                .duration(600)
+                .attr('r', d => d.radius)
+                .attr('fill', d => {
+                    if (d.children && d.children.length) {
+                        return d.expanded ? '#f28e2c' : '#4e79a7';
+                    }
+                    return '#e15759';
+                });
+            
+            // 重新计算碰撞半径
+            simulation.force('collision', d3.forceCollide().radius(d => d.radius + padding));
+            
+            // 增强排斥力使周围节点外移
+            simulation.force('charge', d3.forceManyBody().strength(d => 
+                d.expanded ? -2000 : -400
+            ));
+            
+            // 重启模拟
+            simulation.alpha(0.8).restart();
+            
+            // 更新状态
+            updateStatus();
+            
+            event.stopPropagation();
+        });
+        
+        // 更新节点位置
+        simulation.on('tick', () => {
+            link
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+            
+            node.attr('transform', d => `translate(${d.x}, ${d.y})`);
+        });
+        
+        // 拖拽函数
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        
+        // 控制按钮事件
+        document.getElementById('reset').addEventListener('click', () => {
+            allNodes.forEach(node => {
+                node.expanded = false;
+                node.radius = node.children && node.children.length ? baseRadius : leafRadius;
+                node.fx = null;
+                node.fy = null;
+            });
+            
+            simulation.force('charge', d3.forceManyBody().strength(-400));
+            simulation.force('collision', d3.forceCollide().radius(d => d.radius + padding));
+            simulation.alpha(0.8).restart();
+            
+            node.select('circle')
+                .transition()
+                .duration(600)
+                .attr('r', d => d.radius)
+                .attr('fill', d => {
+                    if (d.children && d.children.length) {
+                        return '#4e79a7';
+                    }
+                    return '#e15759';
+                });
+            
+            updateStatus();
+        });
+        
+        document.getElementById('expand-all').addEventListener('click', () => {
+            allNodes.forEach(node => {
+                if (node.children && node.children.length) {
+                    node.expanded = true;
+                    node.radius = expandedRadius;
+                }
+            });
+            
+            simulation.force('charge', d3.forceManyBody().strength(-600));
+            simulation.force('collision', d3.forceCollide().radius(d => d.radius + padding));
+            simulation.alpha(0.8).restart();
+            
+            node.select('circle')
+                .transition()
+                .duration(600)
+                .attr('r', d => d.radius)
+                .attr('fill', d => {
+                    if (d.children && d.children.length) {
+                        return '#f28e2c';
+                    }
+                    return '#e15759';
+                });
+            
+            updateStatus();
+        });
+        
+        document.getElementById('collapse-all').addEventListener('click', () => {
+            allNodes.forEach(node => {
+                if (node.children && node.children.length) {
+                    node.expanded = false;
+                    node.radius = baseRadius;
+                }
+            });
+            
+            simulation.force('charge', d3.forceManyBody().strength(-400));
+            simulation.force('collision', d3.forceCollide().radius(d => d.radius + padding));
+            simulation.alpha(0.8).restart();
+            
+            node.select('circle')
+                .transition()
+                .duration(600)
+                .attr('r', d => d.radius)
+                .attr('fill', d => {
+                    if (d.children && d.children.length) {
+                        return '#4e79a7';
+                    }
+                    return '#e15759';
+                });
+            
+            updateStatus();
+        });
+        
+        // 添加背景装饰
+        for (let i = 0; i < 50; i++) {
+            svg.append('circle')
+                .attr('cx', Math.random() * width)
+                .attr('cy', Math.random() * height)
+                .attr('r', Math.random() * 4 + 1)
+                .attr('fill', 'rgba(255, 255, 255, 0.08)');
+        }
+        
+        // 添加连接线装饰
+        for (let i = 0; i < 20; i++) {
+            const x1 = Math.random() * width;
+            const y1 = Math.random() * height;
+            svg.append('line')
+                .attr('x1', x1)
+                .attr('y1', y1)
+                .attr('x2', x1 + (Math.random() - 0.5) * 200)
+                .attr('y2', y1 + (Math.random() - 0.5) * 200)
+                .attr('stroke', 'rgba(255, 255, 255, 0.05)')
+                .attr('stroke-width', 1);
+        }
+        
+        // 初始更新状态
+        updateStatus();
+    </script>
+</body>
+</html>

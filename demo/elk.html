@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ELK布局可拖拽组织架构图</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://unpkg.com/elkjs@0.9.0/lib/elk.bundled.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: #fff;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            color: #ffcc00;
+        }
+        .header p {
+            margin: 10px 0 0;
+            color: #ddd;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        button {
+            background: linear-gradient(to right, #ff8c00, #ffcc00);
+            border: none;
+            color: #1a2a6c;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 180px);
+        }
+        #graph {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            margin: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+        .info-panel {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+        .info-panel h2 {
+            color: #ffcc00;
+            margin-top: 0;
+            border-bottom: 2px solid #ffcc00;
+            padding-bottom: 10px;
+        }
+        .features li {
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .status-bar {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 0 15px 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .parent-bg {
+            pointer-events: none;
+        }
+        .node-body {
+            pointer-events: all;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ELK布局可拖拽组织架构图</h1>
+        <p>使用ELK布局算法自动优化组织架构图，支持节点拖拽、展开/折叠</p>
+    </div>
+    
+    <div class="controls">
+        <button id="applyLayout">应用ELK布局</button>
+        <button id="expandAll">展开所有节点</button>
+        <button id="collapseAll">折叠所有节点</button>
+        <button id="resetLayout">重置布局</button>
+    </div>
+    
+    <div class="status-bar">
+        <div>节点数: <span id="nodeCount">0</span></div>
+        <div>层级深度: <span id="depthCount">0</span></div>
+        <div>已展开节点: <span id="expandedCount">0</span></div>
+    </div>
+    
+    <div class="container">
+        <div id="graph"></div>
+        
+        <div class="info-panel">
+            <h2>ELK布局特点</h2>
+            <ul class="features">
+                <li><strong>自动优化布局</strong> - ELK算法自动计算最优节点位置</li>
+                <li><strong>层次结构清晰</strong> - 保持树状结构的层次关系</li>
+                <li><strong>智能间距调整</strong> - 自动计算节点间合理间距</li>
+                <li><strong>支持折叠/展开</strong> - 动态调整组织结构</li>
+                <li><strong>可拖拽节点</strong> - 手动调整节点位置</li>
+                <li><strong>响应式布局</strong> - 适应不同大小的组织结构</li>
+            </ul>
+            
+            <h2>图例说明</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e0f0ff;"></div>
+                    <span>部门/团队节点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffd966;"></div>
+                    <span>员工/叶子节点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #66a3ff;"></div>
+                    <span>父节点容器</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="border: 1px solid #333; background: none;"></div>
+                    <span>标准连接线</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff3300;"></div>
+                    <span>同级连接线</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let data = {
+            name: "总公司",
+            children: [
+                {
+                    name: "技术中心",
+                    children: [
+                        {
+                            name: "前端开发部",
+                            children: [
+                                {
+                                    name: "Web组",
+                                    children: [
+                                        { name: "UI团队" },
+                                        { name: "交互团队" },
+                                        {
+                                            name: "开发团队",
+                                            children: [
+                                                { name: "张三" },
+                                                { name: "李四" },
+                                                { name: "王五" },
+                                            ],
+                                        },
+                                    ],
+                                },
+                                {
+                                    name: "移动端组",
+                                    children: [{ name: "iOS团队" }, { name: "Android团队" }],
+                                },
+                            ],
+                        },
+                        {
+                            name: "后端开发部",
+                            children: [
+                                {
+                                    name: "微服务组",
+                                    children: [{ name: "网关团队" }, { name: "业务中台" }],
+                                },
+                                {
+                                    name: "架构组",
+                                    children: [{ name: "架构设计" }, { name: "技术预研" }],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    name: "运营中心",
+                    children: [
+                        {
+                            name: "市场部",
+                            children: [{ name: "数字营销" }, { name: "品牌推广" }],
+                        },
+                        {
+                            name: "客户成功部",
+                            children: [
+                                { name: "实施团队" },
+                                { name: "支持团队" },
+                                { name: "培训团队" },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        // 初始化变量
+        const elk = new ELK();
+        const svgEl = d3.select("#graph").append("svg");
+        const graphWidth = document.getElementById('graph').clientWidth;
+        const graphHeight = document.getElementById('graph').clientHeight;
+        let root, svg, nodes, extraLinks;
+        
+        // 初始化视图
+        function initVisualization() {
+            svg = svgEl
+                .attr("width", graphWidth)
+                .attr("height", graphHeight)
+                .append("g");
+            
+            // 添加箭头标记
+            svg.append("defs").append("marker")
+                .attr("id", "arrow")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 8)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#ff3300");
+            
+            // 创建层次结构
+            root = d3.hierarchy(data);
+            updateStatus();
+            applyElkLayout();
+        }
+        
+        // 应用ELK布局
+        async function applyElkLayout() {
+            const elkGraph = await createElkGraph(root);
+            const elkLayout = await elk.layout(elkGraph);
+            
+            // 应用布局结果
+            applyLayoutToD3(root, elkLayout);
+            
+            // 计算最大深度
+            root.each(d => {
+                d.depth = d.parent ? d.parent.depth + 1 : 0;
+            });
+            
+            // 计算节点包围盒
+            calculateNodeBox();
+            
+            // 绘制图表
+            drawChart();
+            
+            // 更新状态
+            updateStatus();
+        }
+        
+        // 创建ELK图结构
+        async function createElkGraph(d3Root) {
+            const nodes = [];
+            const edges = [];
+            
+            // 递归添加节点
+            function addNode(node) {
+                const elkNode = {
+                    id: node.data.name,
+                    width: node.children ? 200 : 100,
+                    height: node.children ? 60 : 40,
+                    layoutOptions: {
+                        'elk.direction': 'DOWN',
+                        'elk.spacing.nodeNode': '40',
+                        'elk.layered.spacing.nodeNodeBetweenLayers': '80'
+                    }
+                };
+                
+                // if (node.children && node.children.length > 0) {
+                //     elkNode.children = node.children.map(child => {
+                //         const childNode = addNode(child);
+                //         // 添加边
+                //         edges.push({
+                //             id: `${node.data.name}-${child.data.name}`,
+                //             sources: [node.data.name],
+                //             targets: [child.data.name]
+                //         });
+                //         return childNode;
+                //     });
+                // }
+                
+                nodes.push(elkNode);
+                return elkNode;
+            }
+            
+            // 添加根节点
+            const rootNode = addNode(d3Root);
+            
+            return {
+                id: "root",
+                children: [rootNode],
+                edges: edges,
+                layoutOptions: {
+                    'elk.algorithm': 'layered',
+                    'elk.direction': 'DOWN',
+                    'elk.spacing.nodeNode': '40',
+                    'elk.layered.spacing.nodeNodeBetweenLayers': '80'
+                }
+            };
+        }
+        
+        // 应用布局结果到D3节点
+        function applyLayoutToD3(d3Root, elkNode) {
+            // 递归应用布局
+            function applyPositions(elkNode, d3Node) {
+                if (!d3Node) return;
+                
+                // 设置位置
+                d3Node.x = elkNode.x;
+                d3Node.y = elkNode.y;
+                
+                // 递归处理子节点
+                if (elkNode.children && elkNode.children.length > 0 && 
+                    d3Node.children && d3Node.children.length > 0) {
+                    for (let i = 0; i < elkNode.children.length; i++) {
+                        applyPositions(elkNode.children[i], d3Node.children[i]);
+                    }
+                }
+            }
+            
+            // 从根节点开始应用
+            applyPositions(elkNode.children[0], d3Root);
+        }
+        
+        // 计算节点包围盒
+        function calculateNodeBox() {
+            root.eachAfter(node => {
+                if (node.children) {
+                    const children = node.children;
+                    const minX = d3.min(children, d => d.x - d.box.width/2);
+                    const maxX = d3.max(children, d => d.x + d.box.width/2);
+                    const minY = d3.min(children, d => d.y - 25);
+                    const maxY = d3.max(children, d => d.y + d.box.height - 25);
+                    
+                    node.box = {
+                        width: maxX - minX + 40,
+                        height: maxY - minY + 40,
+                        x: minX - 20,
+                        y: minY - 20
+                    };
+                } else {
+                    node.box = { width: 100, height: 40 };
+                }
+            });
+        }
+        
+        // 绘制图表
+        function drawChart() {
+            // 清除现有内容
+            svg.selectAll("*").remove();
+            
+            // 创建连线生成器
+            const link = d3.linkVertical()
+                .x(d => d.x)
+                .y(d => d.y);
+            
+            // 绘制连线
+            const links = root.links();
+            svg.selectAll("path.link")
+                .data(links)
+                .enter()
+                .append("path")
+                .attr("d", link)
+                .attr("class", "link")
+                .attr("fill", "none")
+                .attr("stroke", "#999")
+                .attr("stroke-width", 1);
+            
+            // 添加叶子节点间额外连线
+            extraLinks = generateLeafLinks(root);
+            svg.selectAll("path.leaf-link")
+                .data(extraLinks)
+                .enter()
+                .append("path")
+                .attr("class", "leaf-link")
+                .attr("d", link)
+                .attr("fill", "none")
+                .attr("stroke", "#ff3300")
+                .attr("stroke-width", 2)
+                .attr("marker-end", "url(#arrow)");
+            
+            // 创建节点组
+            const nodeGroups = svg.selectAll("g.node")
+                .data(root.descendants())
+                .enter()
+                .append("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${d.x},${d.y})`)
+                .call(enableDrag(simulation));
+            
+            // 添加父节点容器
+            nodeGroups.filter(d => d.children)
+                .append("rect")
+                .attr("class", "parent-bg")
+                .attr("x", d => -d.box.width/2)
+                .attr("y", d => -d.box.height/2)
+                .attr("width", d => d.box.width)
+                .attr("height", d => d.box.height)
+                .attr("rx", 10)
+                .attr("fill", "rgba(102, 163, 255, 0.1)")
+                .attr("stroke", "#66a3ff")
+                .attr("stroke-width", 2);
+            
+            // 添加节点主体
+            const nodeBodies = nodeGroups.append("g")
+                .attr("class", "node-body");
+            
+            // 添加节点矩形
+            nodeBodies.append("rect")
+                .attr("x", -50)
+                .attr("y", -20)
+                .attr("width", 100)
+                .attr("height", 40)
+                .attr("rx", 8)
+                .attr("fill", d => d.children ? "#e0f0ff" : "#ffd966")
+                .attr("stroke", "#333")
+                .attr("stroke-width", d => d.children ? 0 : 1);
+            
+            // 添加节点文字
+            nodeBodies.append("text")
+                .text(d => d.data.name)
+                .attr("text-anchor", "middle")
+                .attr("dy", 5)
+                .style("font-family", "Arial")
+                .style("font-size", d => d.children ? "14px" : "12px")
+                .style("font-weight", d => d.children ? "bold" : "normal")
+                .style("fill", "#333");
+            
+            // 添加折叠/展开标记
+            nodeGroups.filter(d => d.children)
+                .append("circle")
+                .attr("cx", 45)
+                .attr("cy", 0)
+                .attr("r", 10)
+                .attr("fill", "#ffcc00")
+                .attr("stroke", "#cc9900")
+                .attr("stroke-width", 1)
+                .on("click", toggleChildren);
+            
+            nodeGroups.filter(d => d.children)
+                .append("text")
+                .text(d => d._children ? "+" : "-")
+                .attr("x", 45)
+                .attr("y", 4)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#1a2a6c")
+                .attr("font-weight", "bold")
+                .on("click", toggleChildren);
+        }
+        
+        // 生成叶子节点间连接线
+        function generateLeafLinks(root) {
+            const links = [];
+            root.each(node => {
+                if (node.children && node.children.length > 1) {
+                    if (node.children.every(d => !d.children)) {
+                        links.push({
+                            source: node.children[0],
+                            target: node.children[node.children.length - 1]
+                        });
+                    }
+                }
+            });
+            return links;
+        }
+        
+        // 切换子节点显示
+        function toggleChildren(event, d) {
+            if (d._children) {
+                d.children = d._children;
+                d._children = null;
+            } else {
+                d._children = d.children;
+                d.children = null;
+            }
+            applyElkLayout();
+        }
+        
+        // 添加拖拽功能
+        function enableDrag(simulation) {
+            function dragStarted(event, d) {
+                d3.select(this).raise().classed("active", true);
+                d._startX = d.x;
+                d._startY = d.y;
+            }
+            
+            function dragged(event, d) {
+                const dx = event.x - d._startX;
+                const dy = event.y - d._startY;
+                
+                function updatePosition(node, dx, dy) {
+                    node.x += dx;
+                    node.y += dy;
+                    if (node.children) {
+                        node.children.forEach(child => updatePosition(child, dx, dy));
+                    }
+                }
+                updatePosition(d, dx, dy);
+                
+                d._startX = event.x;
+                d._startY = event.y;
+                
+                updateVisualization();
+            }
+            
+            function dragEnded(event, d) {
+                d3.select(this).classed("active", false);
+            }
+            
+            return d3.drag()
+                .on("start", dragStarted)
+                .on("drag", dragged)
+                .on("end", dragEnded);
+        }
+        
+        // 更新可视化
+        function updateVisualization() {
+            // 更新连线
+            const link = d3.linkVertical()
+                .x(d => d.x)
+                .y(d => d.y);
+            
+            svg.selectAll("path.link")
+                .data(root.links())
+                .attr("d", link);
+            
+            svg.selectAll("path.leaf-link")
+                .data(extraLinks)
+                .attr("d", link);
+            
+            // 更新节点位置
+            svg.selectAll("g.node")
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+            
+            // 更新父容器尺寸
+            calculateNodeBox();
+            svg.selectAll("rect.parent-bg")
+                .attr("x", d => -d.box.width/2)
+                .attr("y", d => -d.box.height/2)
+                .attr("width", d => d.box.width)
+                .attr("height", d => d.box.height);
+        }
+        
+        // 更新状态信息
+        function updateStatus() {
+            const nodeCount = root.descendants().length;
+            const depthCount = d3.max(root.descendants(), d => d.depth);
+            const expandedCount = root.descendants().filter(d => d.children && !d._children).length;
+            
+            document.getElementById('nodeCount').textContent = nodeCount;
+            document.getElementById('depthCount').textContent = depthCount;
+            document.getElementById('expandedCount').textContent = expandedCount;
+        }
+        
+        // 按钮事件
+        document.getElementById('applyLayout').addEventListener('click', applyElkLayout);
+        document.getElementById('resetLayout').addEventListener('click', initVisualization);
+        
+        document.getElementById('expandAll').addEventListener('click', () => {
+            root.descendants().forEach(d => {
+                if (d._children) {
+                    d.children = d._children;
+                    d._children = null;
+                }
+            });
+            applyElkLayout();
+        });
+        
+        document.getElementById('collapseAll').addEventListener('click', () => {
+            root.descendants().forEach(d => {
+                if (d.children && d.depth > 0) {
+                    d._children = d.children;
+                    d.children = null;
+                }
+            });
+            applyElkLayout();
+        });
+        
+        // 初始化
+        const simulation = d3.forceSimulation();
+        initVisualization();
+    </script>
+</body>
+</html>

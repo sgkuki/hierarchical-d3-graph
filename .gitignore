@@ -1,0 +1,18 @@
+# 依赖目录
+node_modules/
+
+# 构建输出
+dist/
+
+# lock file
+package-lock.json
+
+# 日志文件
+*.log
+
+# 编辑器文件
+.vscode/
+.idea/
+
+# 环境文件
+.env
