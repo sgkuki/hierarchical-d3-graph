@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你怎么知道我去看了陈奕迅演唱会</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #2c3e50;
+            line-height: 1.6;
+            overflow-x: hidden;
+            background: #f8f9fa;
+        }
+        
+        /* 导航栏 */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #3498db;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-links a:hover {
+            color: #3498db;
+        }
+        
+        /* 英雄区域 */
+        .hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            color: white;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .hero p {
+            font-size: 1.5rem;
+            max-width: 700px;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        
+        .cta-button {
+            padding: 1rem 2rem;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            background: #2980b9;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 图片放大区域 */
+        .zoom-section {
+            position: relative;
+            height: 200vh;
+            overflow: hidden;
+        }
+        
+        .zoom-container {
+            position: sticky;
+            top: 0;
+            height: 200vh;
+            display: flex;
+            justify-content: center;
+            align-items: end;
+        }
+        
+        .zoom-image {
+            width: 100%;
+            height: 50%;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: scale(1);
+            transition: transform 0.1s ease-out;
+        }
+
+        .show-image {
+            width: 100%;
+            height: 70%;
+            object-fit: cover;
+            border-radius: 12px;
+            transform: scale(1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s ease-out;
+        }
+
+        .sticky{
+            position: sticky;
+        }
+
+        .absolute{
+            position: absolute;
+        }
+
+        .relative{
+            position: relative;
+        }
+        
+        /* 内容区域 */
+        .content-section {
+            padding: 6rem 2rem;
+            background: white;
+            height: 12000vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            height: 100vh;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: #2c3e50;
+        }
+    
+         /* 面包屑导航样式 */
+        .breadcrumb-container {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eaecef;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            list-style: none;
+        }
+        
+        .breadcrumb-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .breadcrumb-link {
+            color: #6e8efb;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .breadcrumb-link:hover {
+            background: rgba(110, 142, 251, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .breadcrumb-link i {
+            margin-right: 8px;
+            font-size: 1.1rem;
+        }
+        
+        .breadcrumb-separator {
+            margin: 0 10px;
+            color: #a7a9bc;
+        }
+        
+        .breadcrumb-item.active .breadcrumb-link {
+            color: #6c757d;
+            background: none;
+            cursor: default;
+            transform: none;
+        }
+        
+        /* 面包屑动画 */
+        @keyframes crumbFade {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .breadcrumb-item {
+            animation: crumbFade 0.4s ease forwards;
+        }
+        
+        .breadcrumb-item:nth-child(1) { animation-delay: 0.1s; }
+        .breadcrumb-item:nth-child(2) { animation-delay: 0.2s; }
+        .breadcrumb-item:nth-child(3) { animation-delay: 0.3s; }
+        .breadcrumb-item:nth-child(4) { animation-delay: 0.4s; }
+        .breadcrumb-item:nth-child(5) { animation-delay: 0.5s; }
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero p {
+                font-size: 1.2rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+            
+            .zoom-image {
+                width: 95%;
+                height: 70%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 英雄区域 -->
+    <section class="hero">
+        <h1>你怎么知道我去看了陈奕迅演唱会</h1>
+        <button class="cta-button">开始探索</button>
+    </section>
+
+    <!-- 图片放大区域 -->
+    <section class="zoom-section">
+        <div class="zoom-container">
+            <img src="https://i0.hdslb.com/bfs/archive/a3ea45e375bb27ef36421c39a79be768a5d52fab.png" alt="fnds" class="zoom-image" id="zoomImage">
+        </div>
+    </section>
+
+    <!-- 内容区域 -->
+    <section class="content-section relative">
+        <div class="container sticky" style="top: 0">
+            <h2 class="section-title">暂无广告</h2>
+            <div class="breadcrumb-container">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active">
+                    <span class="breadcrumb-link">
+                        <i class="fas fa-home"></i>1
+                    </span>
+                </li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item">
+                    <span class="breadcrumb-link">
+                        <i class="fas fa-box-open"></i>2
+                    </span>
+                </li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item">
+                    <span class="breadcrumb-link">
+                        <i class="fas fa-mobile-alt"></i>3
+                    </span>
+                </li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item">
+                    <span class="breadcrumb-link">
+                        <i class="fas fa-laptop"></i>4
+                    </span>
+                </li>
+                <li class="breadcrumb-separator">/</li>
+                <li class="breadcrumb-item">
+                    <span class="breadcrumb-link">
+                        <i class="fas fa-laptop-code"></i>5
+                    </span>
+                </li>
+            </ol>
+        </div>
+        <img src="https://i0.hdslb.com/bfs/archive/a3ea45e375bb27ef36421c39a79be768a5d52fab.png" alt="fnds广子" class="show-image" id="showImg">
+        </div>
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const zoomImage = document.getElementById('zoomImage');
+            const zoomSection = document.querySelector('.zoom-section');
+            
+            // 设置初始缩放值
+            let scale = 1;
+            const maxScale = 5; // 最大放大倍数
+            const scrollHeight = window.innerHeight;
+            
+            // 监听滚动事件
+            window.addEventListener('scroll', function() {
+                // 获取缩放区域的位置和尺寸信息
+                const sectionRect = zoomSection.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                
+                // 计算滚动进度（0到1之间）
+                let scrollProgress = 0;
+                
+                if (window.innerHeight - sectionRect.top > window.innerHeight && window.innerHeight - sectionRect.top <= (scrollHeight + window.innerHeight)) {
+                    // 当缩放区域在视口中时
+                    const visiblePart = scrollHeight + sectionRect.top;
+                    scrollProgress = 1 - ( visiblePart / (scrollHeight));
+                } else if (window.innerHeight - sectionRect.top <= window.innerHeight) {
+                    // 缩放区域还未进入视口
+                    scrollProgress = 0;
+                } else {
+                    // 缩放区域已完全滚动过
+                    scrollProgress = 1;
+
+                    if(window.innerHeight - sectionRect.top > (6 * scrollHeight + window.innerHeight)){
+                        document.querySelectorAll('.breadcrumb-item').forEach(f => {
+                            f.classList.remove('active');
+                        })
+                        document.querySelectorAll('.breadcrumb-item')[4].classList.add('active');
+                        document.getElementById('showImg').src = 'https://i2.hdslb.com/bfs/archive/290a6f35dca59a777d8a57b328378fa97a182919.jpg'
+                    }else if(window.innerHeight - sectionRect.top > (5 * scrollHeight + window.innerHeight)){
+                        document.querySelectorAll('.breadcrumb-item').forEach(f => {
+                            f.classList.remove('active');
+                            
+                        })
+                        document.querySelectorAll('.breadcrumb-item')[3].classList.add('active');
+                        document.getElementById('showImg').src = 'https://t14.baidu.com/it/u=1955158779,941604999&fm=224&app=112&f=JPEG?w=500&h=500'
+                    }
+                    else if(window.innerHeight - sectionRect.top > (4 * scrollHeight + window.innerHeight)){
+                        document.querySelectorAll('.breadcrumb-item').forEach(f => {
+                            f.classList.remove('active');
+                        })
+                        document.querySelectorAll('.breadcrumb-item')[2].classList.add('active');
+                        document.getElementById('showImg').src = 'https://i1.hdslb.com/bfs/archive/3ff75bbaec41d043a6cf4e52c8911eb65eb2abf5.jpg'
+                    }
+                    else if(window.innerHeight - sectionRect.top > (3 * scrollHeight + window.innerHeight)){
+                        document.querySelectorAll('.breadcrumb-item').forEach(f => {
+                            f.classList.remove('active');
+                        })
+                        document.querySelectorAll('.breadcrumb-item')[1].classList.add('active');
+                        document.getElementById('showImg').src = 'https://i1.hdslb.com/bfs/archive/d57fe2d1fcb4eaeafb4dee7e06c4ae8112660ba0.jpg'
+                    }
+                    else {
+                        document.querySelectorAll('.breadcrumb-item').forEach(f => {
+                            f.classList.remove('active');
+                        })
+                        document.querySelectorAll('.breadcrumb-item')[0].classList.add('active');
+                        document.getElementById('showImg').src = 'https://t14.baidu.com/it/u=888610264,3396934394&fm=224&app=112&f=JPEG?w=500&h=500'
+                    }
+                }
+                
+                // 根据滚动进度计算缩放比例
+                scale = maxScale - (scrollProgress * (maxScale - 1));
+                
+                // 应用缩放效果
+                zoomImage.style.transform = `scale(${scale})`;
+            });
+            
+            // 平滑滚动到指定区域
+            document.querySelector('.cta-button').addEventListener('click', function() {
+                document.querySelector('.zoom-section').scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
